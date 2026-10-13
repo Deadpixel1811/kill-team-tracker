@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kill Team Score Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e8e5da;--card:#f5f3ea;--ink:#232a1f;--mute:#6b7060;--line:#cbc7b6;--accent:#9a3b1e;--onaccent:#fff;--lead:#c9a24b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171c1e;--card:#222a2d;--ink:#e8e6dc;--mute:#9aa093;--line:#38423f;--accent:#d08a3c;--onaccent:#171c1e;--lead:#d08a3c}}
+:root[data-theme="dark"]{--bg:#171c1e;--card:#222a2d;--ink:#e8e6dc;--mute:#9aa093;--line:#38423f;--accent:#d08a3c;--onaccent:#171c1e;--lead:#d08a3c}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:500 16px/1.4 Barlow,system-ui,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+h1{font:700 28px/1 "Barlow Condensed",Impact,sans-serif;letter-spacing:.02em;margin:0}
+.bar{display:flex;gap:8px}
+button{font:inherit;cursor:pointer;color:var(--ink);background:transparent;border:1.5px solid var(--line);border-radius:6px;padding:8px 14px;min-height:44px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.primary{background:var(--accent);color:var(--onaccent);border-color:var(--accent);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.card{background:var(--card);border:1.5px solid var(--line);border-radius:8px;padding:14px}
+.card.lead{border-color:var(--lead);box-shadow:inset 0 4px 0 var(--lead)}
+.top{display:flex;align-items:center;gap:8px}
+.name{flex:1;min-width:0;font:700 20px "Barlow Condensed",sans-serif;background:transparent;color:var(--ink);border:0;border-bottom:1.5px solid var(--line);padding:6px 2px}
+.x{min-height:36px;padding:4px 10px;color:var(--mute)}
+.total{display:flex;align-items:baseline;justify-content:space-between;margin:10px 0 6px}
+.total b{font:700 64px/1 "Barlow Condensed",sans-serif}
+.total span{color:var(--mute)}
+.row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid var(--line)}
+.row label{color:var(--mute);width:72px}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:44px;padding:0;font-size:22px;line-height:1}
+.step output{width:36px;text-align:center;font:700 24px "Barlow Condensed",sans-serif}
+.add{margin-top:12px;width:100%}
+input.name::placeholder{color:var(--mute)}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Kill Team Score Tracker</h1>
+<div class="bar"><button id="reset">Reset scores</button></div>
+</header>
+<div id="grid" class="grid"></div>
+<button id="add" class="add primary">Add player</button>
+</main>
+<script>
+const ROUNDS=5,MAX=4,KEY="killteam-tracker-v1";
+let players=[{name:"",s:Array(ROUNDS).fill(0)},{name:"",s:Array(ROUNDS).fill(0)}];
+try{const d=JSON.parse(localStorage.getItem(KEY));if(Array.isArray(d)&&d.length>=1&&d.length<=MAX)players=d}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(players))}catch(e){}}
+const tot=p=>p.s.reduce((a,b)=>a+b,0);
+function render(){
+  const g=document.getElementById("grid");
+  const totals=players.map(tot),top=Math.max(...totals);
+  g.innerHTML="";
+  players.forEach((p,i)=>{
+    const c=document.createElement("div");
+    c.className="card"+(top>0&&totals[i]===top&&totals.filter(t=>t===top).length===1?" lead":"");
+    c.innerHTML=`<div class="top"><input class="name" aria-label="Player ${i+1} name" placeholder="Player ${i+1}" maxlength="24" value="${p.name.replace(/"/g,"&quot;")}"><button class="x" aria-label="Remove player" ${players.length<2?"disabled":""}>Remove</button></div>
+    <div class="total"><b>${totals[i]}</b><span>total</span></div>`+
+    p.s.map((v,r)=>`<div class="row"><label>Round ${r+1}</label><div class="step"><button data-r="${r}" data-d="-1" aria-label="Subtract from round ${r+1}">−</button><output>${v}</output><button data-r="${r}" data-d="1" aria-label="Add to round ${r+1}">+</button></div></div>`).join("");
+    c.querySelector(".name").oninput=e=>{p.name=e.target.value;save()};
+    c.querySelector(".x").onclick=()=>{players.splice(i,1);save();render()};
+    c.querySelectorAll(".step button").forEach(b=>b.onclick=()=>{p.s[b.dataset.r]=Math.max(0,p.s[b.dataset.r]+Number(b.dataset.d));save();render()});
+    g.appendChild(c);
+  });
+  document.getElementById("add").disabled=players.length>=MAX;
+}
+document.getElementById("add").onclick=()=>{if(players.length<MAX){players.push({name:"",s:Array(ROUNDS).fill(0)});save();render()}};
+document.getElementById("reset").onclick=()=>{if(confirm("Reset all scores to 0? Player names are kept.")){players.forEach(p=>p.s=Array(ROUNDS).fill(0));save();render()}};
+render();
+</script>
+</body>
+</html>
